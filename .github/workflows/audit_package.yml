@@ -1,5 +1,4 @@
 name: NPM Audit Fix Run
-
 on:
   workflow_dispatch:
     inputs:
@@ -8,19 +7,18 @@ on:
         required: true
         type: boolean
       base_branch:
-        description: "Specify a base branch"
+        description: 'Specify a base branch'
         required: false
-        default: "main"   
-
+        default: 'main'
   schedule:
-    - cron: "0 0 * * 1"
+    - cron: '0 0 * * 1'
 
 jobs:
   audit-fix:
     uses: step-security/reusable-workflows/.github/workflows/audit_fix.yml@v1
     with:
-      force: ${{ github.event.inputs.force || false }}
-      base_branch: ${{ github.event.inputs.base_branch || 'main' }}
+      force: ${{ inputs.force || false }}
+      base_branch: ${{ inputs.base_branch || 'main' }}
 
 permissions:
   contents: write
