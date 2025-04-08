@@ -1,0 +1,86 @@
+name: ci
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  test:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - name: setup node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: install dependencies
+        run: |
+          npm ci
+
+      - name: lint code
+        run: |
+          npm run lint
+
+      - name: build action
+        run: |
+          npm run build
+
+      - name: run tests
+        run: |
+          npm test
+
+  dogfood:
+    name: dogfood
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - name: setup node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: install dependencies
+        run: |
+          npm ci
+
+      - name: Build action
+        run: |
+          npm run build
+
+      - uses: ./
+        with:
+          preformatted: true
+          message-id: path
+          message-path: |
+            .github/test/file-*.txt
+
+      - uses: ./
+        with:
+          message-id: text
+          message: |
+            **Hello**
+            🌏
+            !  
+            
+      - uses: ./
+        with:
+          message-id: text
+          find: |
+            Hello
+            🌏
+          replace: |
+            Goodnight
+            🌕
