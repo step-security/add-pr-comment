@@ -9,3 +9,7 @@ reason = "Untrusted headers are not processed"
 [[IgnoredVulns]]
 id = "GHSA-xx4v-prfh-6cgc"
 reason = "Untrusted headers are not processed"
+
+[[IgnoredVulns]]
+id = "GHSA-pxg6-pf52-xh8x"
+reason = "This is a test dependency"
