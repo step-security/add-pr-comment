@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { WebhookPayload } from '@actions/github/lib/interfaces'
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -66,33 +66,40 @@ let messagePayload: MessagePayload | undefined
 vi.mock('@actions/core')
 
 const handlers = [
-  rest.post(
+  http.post(
     `https://api.github.com/repos/:repoUser/:repoName/issues/:issueNumber/comments`,
-    async (req, res, ctx) => {
-      messagePayload = await req.json<MessagePayload>()
-      return res(ctx.status(200), ctx.json(postIssueCommentsResponse))
-    },
+    async ({ request }) => {
+      messagePayload = (await request.json()) as MessagePayload
+      return HttpResponse.json(postIssueCommentsResponse, { status: 200 })
+    }
   ),
-  rest.patch(
+  http.patch(
     `https://api.github.com/repos/:repoUser/:repoName/issues/comments/:commentId`,
-    async (req, res, ctx) => {
-      messagePayload = await req.json<MessagePayload>()
-      return res(ctx.status(200), ctx.json(postIssueCommentsResponse))
-    },
+    async ({ request }) => {
+      messagePayload = (await request.json()) as MessagePayload
+      return HttpResponse.json(postIssueCommentsResponse, { status: 200 })
+    }
   ),
-  rest.get(
-    `https://api.github.com/repos/:repoUser/:repoName/issues/:issueNumber/comments`,
-    (req, res, ctx) => {
-      return res(ctx.status(200), ctx.json(getIssueCommentsResponse))
-    },
+  
+  http.get(
+    'https://api.github.com/repos/:repoUser/:repoName/issues/:issueNumber/comments',
+    () => {
+      return HttpResponse.json(getIssueCommentsResponse, { status: 200 })
+    }
   ),
-  rest.get(
-    `https://api.github.com/repos/:repoUser/:repoName/commits/:commitSha/pulls`,
-    (req, res, ctx) => {
-      return res(ctx.status(200), ctx.json(getCommitPullsResponse))
-    },
+  http.get(
+    'https://api.github.com/repos/:repoUser/:repoName/commits/:commitSha/pulls',
+    () => {
+      return HttpResponse.json(getCommitPullsResponse, { status: 200 })
+    }
   ),
+
+  // ✅ Add this exact handler for the failing request
+  http.get('https://agent.api.stepsecurity.io/v1/github/:org/actions/subscription', ({ params }) => {
+    return HttpResponse.json({ subscription: 'mocked' }, { status: 200 })
+  })
 ]
+
 
 const server = setupServer(...handlers)
 
