@@ -26,7 +26,6 @@
     "clean": "rm -rf node_modules dist package-lock.json __tests__/runner/**/*",
     "lint": "eslint src/**/*.ts",
     "prepare": "npm run build && git add dist",
-    "release": "npm run build && np --no-publish",
     "test": "vitest run",
     "watch": "vitest"
   },
@@ -143,7 +142,6 @@
     "eslint-plugin-prettier": "^4.2.1",
     "msw": "^1.2.1",
     "nock": "^13.3.0",
-    "np": "^10.2.0",
     "prettier": "^2.8.7",
     "typescript": "^5.0.4",
     "vitest": "^3.1.1"
