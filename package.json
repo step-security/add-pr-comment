@@ -133,7 +133,7 @@
     "@vercel/ncc": "^0.36.1",
     "axios": "^1.8.4",
     "del-cli": "^5.0.0",
-    "eslint": "^8.39.0",
+    "eslint": "^9.39.1",
     "eslint-config-prettier": "^8.8.0",
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-import": "^2.27.5",
