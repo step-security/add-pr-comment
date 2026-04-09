@@ -18,8 +18,7 @@ async function getExistingComment(octokit, owner, repo, issueNumber, messageId) 
     let found;
     for await (const comments of octokit.paginate.iterator(octokit.rest.issues.listComments, parameters)) {
         found = comments.data.find(({ body }) => {
-            var _a;
-            return ((_a = body === null || body === void 0 ? void 0 : body.search(messageId)) !== null && _a !== void 0 ? _a : -1) > -1;
+            return (body?.search(messageId) ?? -1) > -1;
         });
         if (found) {
             break;
@@ -99,7 +98,6 @@ exports.getInputs = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 async function getInputs() {
-    var _a, _b;
     const messageIdInput = core.getInput('message-id', { required: false });
     const messageId = messageIdInput === '' ? 'add-pr-comment' : `add-pr-comment:${messageIdInput}`;
     const messageInput = core.getInput('message', { required: false });
@@ -127,7 +125,7 @@ async function getInputs() {
     return {
         allowRepeats,
         commitSha: github.context.sha,
-        issue: issue ? Number(issue) : (_a = payload.issue) === null || _a === void 0 ? void 0 : _a.number,
+        issue: issue ? Number(issue) : payload.issue?.number,
         messageInput,
         messageId: `<!-- ${messageId} -->`,
         messageSuccess,
@@ -139,7 +137,7 @@ async function getInputs() {
         messageReplace,
         preformatted,
         proxyUrl,
-        pullRequestNumber: (_b = payload.pull_request) === null || _b === void 0 ? void 0 : _b.number,
+        pullRequestNumber: payload.pull_request?.number,
         refreshMessagePosition,
         repoToken,
         status,
@@ -222,13 +220,12 @@ exports.findFiles = findFiles;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getIssueNumberFromCommitPullsList = void 0;
 async function getIssueNumberFromCommitPullsList(octokit, owner, repo, commitSha) {
-    var _a;
     const commitPullsList = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
         owner,
         repo,
         commit_sha: commitSha,
     });
-    return commitPullsList.data.length ? (_a = commitPullsList.data) === null || _a === void 0 ? void 0 : _a[0].number : null;
+    return commitPullsList.data.length ? commitPullsList.data?.[0].number : null;
 }
 exports.getIssueNumberFromCommitPullsList = getIssueNumberFromCommitPullsList;
 
@@ -265,6 +262,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const fs = __importStar(__nccwpck_require__(7147));
 const github = __importStar(__nccwpck_require__(5438));
 const comments_1 = __nccwpck_require__(1910);
 const config_1 = __nccwpck_require__(88);
@@ -318,8 +316,8 @@ const run = async () => {
             return;
         }
         let comment;
-        if ((messageFind === null || messageFind === void 0 ? void 0 : messageFind.length) && ((messageReplace === null || messageReplace === void 0 ? void 0 : messageReplace.length) || message) && (existingComment === null || existingComment === void 0 ? void 0 : existingComment.body)) {
-            message = (0, message_1.findAndReplaceInMessage)(messageFind, (messageReplace === null || messageReplace === void 0 ? void 0 : messageReplace.length) ? messageReplace : [message], (0, message_1.removeMessageHeader)(existingComment.body));
+        if (messageFind?.length && (messageReplace?.length || message) && existingComment?.body) {
+            message = (0, message_1.findAndReplaceInMessage)(messageFind, messageReplace?.length ? messageReplace : [message], (0, message_1.removeMessageHeader)(existingComment.body));
         }
         if (!message) {
             throw new Error('no message, check your message inputs');
@@ -327,7 +325,7 @@ const run = async () => {
         const body = (0, message_1.addMessageHeader)(messageId, message);
         if (proxyUrl) {
             comment = await (0, proxy_1.createCommentProxy)({
-                commentId: existingComment === null || existingComment === void 0 ? void 0 : existingComment.id,
+                commentId: existingComment?.id,
                 owner,
                 repo,
                 issueNumber,
@@ -335,9 +333,9 @@ const run = async () => {
                 repoToken,
                 proxyUrl,
             });
-            core.setOutput((existingComment === null || existingComment === void 0 ? void 0 : existingComment.id) ? 'comment-updated' : 'comment-created', 'true');
+            core.setOutput(existingComment?.id ? 'comment-updated' : 'comment-created', 'true');
         }
-        else if (existingComment === null || existingComment === void 0 ? void 0 : existingComment.id) {
+        else if (existingComment?.id) {
             if (refreshMessagePosition) {
                 await (0, comments_1.deleteComment)(octokit, owner, repo, existingComment.id, body);
                 comment = await (0, comments_1.createComment)(octokit, owner, repo, issueNumber, body);
@@ -375,19 +373,38 @@ if (process.env['NODE_ENV'] !== 'test') {
 }
 exports["default"] = run;
 async function validateSubscription() {
-    var _a;
-    const API_URL = `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/subscription`;
+    const eventPath = process.env.GITHUB_EVENT_PATH;
+    let repoPrivate;
+    if (eventPath && fs.existsSync(eventPath)) {
+        const eventData = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+        repoPrivate = eventData?.repository?.private;
+    }
+    const upstream = 'mshick/add-pr-comment';
+    const action = process.env.GITHUB_ACTION_REPOSITORY;
+    const docsUrl = 'https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions';
+    core.info('');
+    core.info('\u001b[1;36mStepSecurity Maintained Action\u001b[0m');
+    core.info(`Secure drop-in replacement for ${upstream}`);
+    if (repoPrivate === false)
+        core.info('\u001b[32m\u2713 Free for public repositories\u001b[0m');
+    core.info(`\u001b[36mLearn more:\u001b[0m ${docsUrl}`);
+    core.info('');
+    if (repoPrivate === false)
+        return;
+    const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+    const body = { action: action || '' };
+    if (serverUrl !== 'https://github.com')
+        body.ghes_server = serverUrl;
     try {
-        await axios_1.default.get(API_URL, { timeout: 3000 });
+        await axios_1.default.post(`https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/maintained-actions-subscription`, body, { timeout: 3000 });
     }
     catch (error) {
-        if ((0, axios_1.isAxiosError)(error) && ((_a = error.response) === null || _a === void 0 ? void 0 : _a.status) === 403) {
-            core.error('Subscription is not valid. Reach out to support@stepsecurity.io');
+        if ((0, axios_1.isAxiosError)(error) && error.response?.status === 403) {
+            core.error(`\u001b[1;31mThis action requires a StepSecurity subscription for private repositories.\u001b[0m`);
+            core.error(`\u001b[31mLearn how to enable a subscription: ${docsUrl}\u001b[0m`);
             process.exit(1);
         }
-        else {
-            core.info('Timeout or API not reachable. Continuing to next step.');
-        }
+        core.info('Timeout or API not reachable. Continuing to next step.');
     }
 }
 
@@ -431,7 +448,7 @@ async function getMessage({ messageInput, messagePath, messageCancelled, message
     if (preformatted) {
         message = `\`\`\`\n${message}\n\`\`\``;
     }
-    return message !== null && message !== void 0 ? message : '';
+    return message ?? '';
 }
 exports.getMessage = getMessage;
 async function getMessageFromPath(searchPath) {
@@ -470,11 +487,10 @@ function splitFind(find) {
     };
 }
 function findAndReplaceInMessage(find, replace, original) {
-    var _a;
     let message = original;
     for (const [i, f] of find.entries()) {
         const { regExp, modifiers } = splitFind(f);
-        message = message.replace(new RegExp(regExp, modifiers), (_a = replace[i]) !== null && _a !== void 0 ? _a : replace.join('\n'));
+        message = message.replace(new RegExp(regExp, modifiers), replace[i] ?? replace.join('\n'));
     }
     return message;
 }
