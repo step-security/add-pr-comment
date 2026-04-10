@@ -11,6 +11,13 @@ on:
         description: "Specify Node.js version (e.g., '18', '20', 'lts/*')"
         required: false
         default: "24"
+      mode:
+        description: "Run mode: cherry-pick or verify"
+        required: false
+        default: "cherry-pick"
+
+  pull_request:
+    types: [opened, synchronize, labeled]
 
 permissions:
   contents: write
@@ -26,3 +33,5 @@ jobs:
       repo-name: "add-pr-comment"
       base_branch: ${{ inputs.base_branch }}
       node_version: "${{ inputs.node_version || '24' }}"
+      mode: ${{ github.event_name == 'pull_request' && 'verify' || inputs.mode }}
+
