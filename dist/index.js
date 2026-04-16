@@ -42199,19 +42199,16 @@ async function getInputs() {
     const messagePath = getInput('message-path', { required: false });
     const messageFind = getMultilineInput('find', { required: false });
     const messageReplace = getMultilineInput('replace', { required: false });
-    const repoOwner = getInput('repo-owner', { required: true });
-    const repoName = getInput('repo-name', { required: true });
-    const repoToken = getInput('repo-token', { required: true });
-    const status = getInput('status', { required: true });
+    const repoOwner = getInput('repo-owner', { required: false });
+    const repoName = getInput('repo-name', { required: false });
+    const repoToken = getInput('repo-token', { required: false });
+    const status = getInput('status', { required: false });
     const issue = getInput('issue', { required: false });
     const proxyUrl = getInput('proxy-url', { required: false }).replace(/\/$/, '');
-    const allowRepeats = getInput('allow-repeats', { required: true }) === 'true';
+    const allowRepeats = getInput('allow-repeats', { required: false }) === 'true';
     const refreshMessagePosition = getInput('refresh-message-position', { required: false }) === 'true';
     const updateOnly = getInput('update-only', { required: false }) === 'true';
     const preformatted = getInput('preformatted', { required: false }) === 'true';
-    if (messageInput && messagePath) {
-        throw new Error('must specify only one, message or message-path');
-    }
     const messageSuccess = getInput(`message-success`);
     const messageFailure = getInput(`message-failure`);
     const messageCancelled = getInput(`message-cancelled`);
@@ -43261,12 +43258,12 @@ async function getMessage({ messageInput, messagePath, messageCancelled, message
         message = messageSkipped;
     }
     if (!message) {
-        if (messagePath) {
-            message = await getMessageFromPath(messagePath);
-        }
-        else {
-            message = messageInput;
-        }
+        const parts = [];
+        if (messageInput)
+            parts.push(messageInput);
+        if (messagePath)
+            parts.push(await getMessageFromPath(messagePath));
+        message = parts.length ? parts.join('\n') : undefined;
     }
     if (preformatted) {
         message = `\`\`\`\n${message}\n\`\`\``;
