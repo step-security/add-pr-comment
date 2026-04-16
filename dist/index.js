@@ -43275,6 +43275,7 @@ async function getMessage({ messageInput, messagePath, messageCancelled, message
 }
 async function getMessageFromPath(searchPath) {
     let message = '';
+    const maxCharacterLength = 65536;
     const files = await findFiles(searchPath);
     for (const [index, path] of files.entries()) {
         if (index > 0) {
@@ -43282,7 +43283,10 @@ async function getMessageFromPath(searchPath) {
         }
         message += await promises_default().readFile(path, { encoding: 'utf8' });
     }
-    return message;
+    // return trimmed message if message is too long (maximum is 65536 characters)
+    return message.length > maxCharacterLength
+        ? message.substring(0, maxCharacterLength - 3) + '...'
+        : message;
 }
 function addMessageHeader(messageId, message) {
     return `${messageId}\n\n${message}`;
