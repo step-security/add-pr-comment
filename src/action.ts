@@ -18,6 +18,7 @@ import {
   findAndReplaceInMessage,
   getMessage,
   removeMessageHeader,
+  truncateMessage,
 } from './message.js'
 import { createCommentProxy } from './proxy.js'
 
@@ -191,6 +192,7 @@ export const run = async (): Promise<void> => {
       status,
       messageFind,
       messageReplace,
+      truncate,
     } = await getInputs()
 
     const octokit = github.getOctokit(repoToken)
@@ -219,6 +221,19 @@ export const run = async (): Promise<void> => {
         message = (message ?? '') + attachment.markdown
         core.setOutput('artifact-url', attachment.url)
       }
+    }
+
+    const headerLength = messageId.length + 2 // messageId + '\n\n' from addMessageHeader
+
+    if (message) {
+      const truncateResult = await truncateMessage(message, truncate, headerLength, messageId)
+      message = truncateResult.message
+      core.setOutput('truncated', truncateResult.truncated ? 'true' : 'false')
+      if (truncateResult.artifactUrl) {
+        core.setOutput('truncated-artifact-url', truncateResult.artifactUrl)
+      }
+    } else {
+      core.setOutput('truncated', 'false')
     }
 
     const commentOptions: ManageCommentOptions = {
