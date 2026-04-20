@@ -1,0 +1,188 @@
+import * as fs from 'node:fs'
+import * as core from '@actions/core'
+import * as github from '@actions/github'
+import axios, { isAxiosError } from 'axios'
+import { createComment, deleteComment, getExistingComment, updateComment } from './comments.js'
+import { getInputs } from './config.js'
+import { getIssueNumberFromCommitPullsList } from './issues.js'
+import {
+  addMessageHeader,
+  findAndReplaceInMessage,
+  getMessage,
+  removeMessageHeader,
+} from './message.js'
+import { createCommentProxy } from './proxy.js'
+import type { CreateIssueCommentResponseData, ExistingIssueComment } from './types.js'
+
+async function validateSubscription(): Promise<void> {
+  const eventPath = process.env.GITHUB_EVENT_PATH
+  let repoPrivate: boolean | undefined
+
+  if (eventPath && fs.existsSync(eventPath)) {
+    const eventData = JSON.parse(fs.readFileSync(eventPath, 'utf8'))
+    repoPrivate = eventData?.repository?.private
+  }
+
+  const upstream = 'mshick/add-pr-comment'
+  const action = process.env.GITHUB_ACTION_REPOSITORY
+  const docsUrl = 'https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions'
+
+  core.info('')
+  core.info('\u001b[1;36mStepSecurity Maintained Action\u001b[0m')
+  core.info(`Secure drop-in replacement for ${upstream}`)
+  if (repoPrivate === false) core.info('\u001b[32m\u2713 Free for public repositories\u001b[0m')
+  core.info(`\u001b[36mLearn more:\u001b[0m ${docsUrl}`)
+  core.info('')
+
+  if (repoPrivate === false) return
+
+  const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com'
+  const body: Record<string, string> = { action: action || '' }
+  if (serverUrl !== 'https://github.com') body.ghes_server = serverUrl
+  try {
+    await axios.post(
+      `https://agent.api.stepsecurity.io/v1/github/${process.env.GITHUB_REPOSITORY}/actions/maintained-actions-subscription`,
+      body,
+      { timeout: 3000 },
+    )
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 403) {
+      core.error(
+        `\u001b[1;31mThis action requires a StepSecurity subscription for private repositories.\u001b[0m`,
+      )
+      core.error(`\u001b[31mLearn how to enable a subscription: ${docsUrl}\u001b[0m`)
+      process.exit(1)
+    }
+    core.info('Timeout or API not reachable. Continuing to next step.')
+  }
+}
+
+export const run = async (): Promise<void> => {
+  try {
+    await validateSubscription()
+
+    const {
+      allowRepeats,
+      messagePath,
+      messageInput,
+      messageId,
+      refreshMessagePosition,
+      repoToken,
+      proxyUrl,
+      issue,
+      pullRequestNumber,
+      commitSha,
+      repo,
+      owner,
+      updateOnly,
+      messageCancelled,
+      messageFailure,
+      messageSuccess,
+      messageSkipped,
+      preformatted,
+      status,
+      messageFind,
+      messageReplace,
+    } = await getInputs()
+
+    const octokit = github.getOctokit(repoToken)
+
+    let message = await getMessage({
+      messagePath,
+      messageInput,
+      messageSkipped,
+      messageCancelled,
+      messageSuccess,
+      messageFailure,
+      preformatted,
+      status,
+    })
+
+    let issueNumber: number | undefined
+
+    if (issue) {
+      issueNumber = issue
+    } else if (pullRequestNumber) {
+      issueNumber = pullRequestNumber
+    } else {
+      // If this is not a pull request, attempt to find a PR matching the sha
+      issueNumber = await getIssueNumberFromCommitPullsList(octokit, owner, repo, commitSha)
+    }
+
+    if (!issueNumber) {
+      core.info(
+        'no issue number found, use a pull_request event, a pull event, or provide an issue input',
+      )
+      core.setOutput('comment-created', 'false')
+      return
+    }
+
+    let existingComment: ExistingIssueComment | undefined
+
+    if (!allowRepeats) {
+      core.debug('repeat comments are disallowed, checking for existing')
+
+      existingComment = await getExistingComment(octokit, owner, repo, issueNumber, messageId)
+
+      if (existingComment) {
+        core.debug(`existing comment found with id: ${existingComment.id}`)
+      }
+    }
+
+    // if no existing comment and updateOnly is true, exit
+    if (!existingComment && updateOnly) {
+      core.info('no existing comment found and update-only is true, exiting')
+      core.setOutput('comment-created', 'false')
+      return
+    }
+
+    let comment: CreateIssueCommentResponseData | null | undefined
+
+    if (messageFind?.length && (messageReplace?.length || message) && existingComment?.body) {
+      message = findAndReplaceInMessage(
+        messageFind,
+        messageReplace?.length ? messageReplace : [message],
+        removeMessageHeader(existingComment.body),
+      )
+    }
+
+    if (!message) {
+      throw new Error('no message, check your message inputs')
+    }
+
+    const body = addMessageHeader(messageId, message)
+
+    if (proxyUrl) {
+      comment = await createCommentProxy({
+        commentId: existingComment?.id,
+        owner,
+        repo,
+        issueNumber,
+        body,
+        repoToken,
+        proxyUrl,
+      })
+      core.setOutput(existingComment?.id ? 'comment-updated' : 'comment-created', 'true')
+    } else if (existingComment?.id) {
+      if (refreshMessagePosition) {
+        await deleteComment(octokit, owner, repo, existingComment.id, body)
+        comment = await createComment(octokit, owner, repo, issueNumber, body)
+      } else {
+        comment = await updateComment(octokit, owner, repo, existingComment.id, body)
+      }
+      core.setOutput('comment-updated', 'true')
+    } else {
+      comment = await createComment(octokit, owner, repo, issueNumber, body)
+      core.setOutput('comment-created', 'true')
+    }
+
+    if (comment) {
+      core.setOutput('comment-id', comment.id)
+    } else {
+      core.setOutput('comment-created', 'false')
+      core.setOutput('comment-updated', 'false')
+    }
+  } catch (err) {
+    core.setFailed(err instanceof Error ? err.message : JSON.stringify(err))
+  }
+}

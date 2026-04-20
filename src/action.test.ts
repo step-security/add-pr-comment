@@ -1,18 +1,18 @@
-import * as core from '@actions/core'
-import * as github from '@actions/github'
-import { WebhookPayload } from '@actions/github/lib/interfaces'
-import { http, HttpResponse } from 'msw'
-import { setupServer } from 'msw/node'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import * as core from '@actions/core'
+import * as github from '@actions/github'
+import type { WebhookPayload } from '@actions/github/lib/interfaces'
+import { HttpResponse, http } from 'msw'
+import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import run from '../src/main'
-import apiResponse from './sample-pulls-api-response.json'
+import apiResponse from './__fixtures__/sample-pulls-api-response.json'
+import { run } from './action'
 
-const messagePath1Fixture = path.resolve(__dirname, './message-part-1.txt')
+const messagePath1Fixture = path.resolve(__dirname, './__fixtures__/message-part-1.txt')
 const messagePath1FixturePayload = await fs.readFile(messagePath1Fixture, 'utf-8')
-const messagePath2Fixture = path.resolve(__dirname, './message-part-2.txt')
-const messagePathTooLongFixture = path.resolve(__dirname, './message-too-long.txt')
+const messagePath2Fixture = path.resolve(__dirname, './__fixtures__/message-part-2.txt')
+const messagePathTooLongFixture = path.resolve(__dirname, './__fixtures__/message-too-long.txt')
 
 const repoToken = '12345'
 const commitSha = 'abc123'
@@ -51,7 +51,9 @@ const defaultIssueNumber = 1
 
 let inputs = defaultInputs
 let issueNumber = defaultIssueNumber
+// biome-ignore lint/suspicious/noImplicitAnyLet: test fixture
 let getCommitPullsResponse
+// biome-ignore lint/suspicious/noImplicitAnyLet: test fixture
 let getIssueCommentsResponse
 let postIssueCommentsResponse = {
   id: 42,
@@ -234,7 +236,7 @@ describe('add-pr-comment action', () => {
     inputs['message-path'] = messagePathTooLongFixture
     inputs['allow-repeats'] = 'true'
 
-    let endOfMessage = "...";
+    const endOfMessage = '...'
 
     await expect(run()).resolves.not.toThrow()
     expect(endOfMessage).toEqual(messagePayload?.body.slice(-3))
@@ -244,7 +246,7 @@ describe('add-pr-comment action', () => {
 
   it('supports globs in message paths', async () => {
     inputs.message = undefined
-    inputs['message-path'] = `${path.resolve(__dirname)}/message-part-*.txt`
+    inputs['message-path'] = `${path.resolve(__dirname, '__fixtures__')}/message-part-*.txt`
     inputs['allow-repeats'] = 'true'
 
     await expect(run()).resolves.not.toThrow()

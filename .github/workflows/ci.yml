@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   pr-title:
-    name: pr title
+    name: PR Title
     runs-on: ubuntu-slim
     steps:
       - uses: step-security/action-semantic-pull-request@v6
@@ -20,7 +20,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    name: unit tests
+    name: Unit Tests
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,32 +30,31 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
 
-      - name: setup node.js
+      - name: Setup Node.js
         uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
         with:
           node-version-file: '.node-version'
 
-      - name: install dependencies
+      - name: Install Dependencies
         run: |
           npm ci
 
-      - name: lint code
-        run: |
-          npm run lint
+      - name: Check Lint and Formatting
+        run: npm run check
 
-      - name: build action
+      - name: Build Action
         run: |
           npm run build
 
-      - name: run tests
+      - name: Run Tests
         run: |
           npm test
 
   dogfood:
-    name: dogfood
+    name: Dogfood
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,19 +65,19 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
 
-      - name: setup node.js
+      - name: Setup Node.js
         uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
         with:
           node-version-file: '.node-version'
 
-      - name: install dependencies
+      - name: Install Dependencies
         run: |
           npm ci
 
-      - name: Build action
+      - name: Build Action
         run: |
           npm run build
 
