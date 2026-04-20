@@ -53843,6 +53843,11 @@ async function getInputs() {
     const updateOnly = getInput('update-only', { required: false }) === 'true';
     const preformatted = getInput('preformatted', { required: false }) === 'true';
     const deleteOnStatus = getInput('delete-on-status', { required: false });
+    const commentTarget = getInput('comment-target', { required: false }) || 'pr';
+    if (commentTarget !== 'pr' && commentTarget !== 'commit') {
+        throw new Error(`Invalid comment-target: "${commentTarget}". Must be "pr" or "commit".`);
+    }
+    const commitShaInput = getInput('commit-sha', { required: false });
     const messageSuccess = getInput(`message-success`);
     const messageFailure = getInput(`message-failure`);
     const messageCancelled = getInput(`message-cancelled`);
@@ -53850,7 +53855,8 @@ async function getInputs() {
     const { payload } = context;
     return {
         allowRepeats,
-        commitSha: context.sha,
+        commentTarget: commentTarget,
+        commitSha: commitShaInput || context.sha,
         issue: issue ? Number(issue) : payload.issue?.number,
         messageInput,
         messageId: `<!-- ${messageId} -->`,
