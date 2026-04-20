@@ -2,12 +2,11 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import type { WebhookPayload } from '@actions/github/lib/interfaces'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import apiResponse from './__fixtures__/sample-pulls-api-response.json'
-import { run } from './action'
+import { run } from './action.js'
 
 const messagePath1Fixture = path.resolve(__dirname, './__fixtures__/message-part-1.txt')
 const messagePath1FixturePayload = await fs.readFile(messagePath1Fixture, 'utf-8')
@@ -18,7 +17,10 @@ const repoToken = '12345'
 const commitSha = 'abc123'
 const simpleMessage = 'hello world'
 
+type WebhookPayload = typeof github.context.payload
+
 type Inputs = {
+  [key: string]: string | undefined
   message: string | undefined
   'message-path': string | undefined
   'repo-owner': string
@@ -33,6 +35,8 @@ type Inputs = {
   'message-skipped'?: string
   'update-only'?: string
   preformatted?: string
+  find?: string
+  replace?: string
   status?: 'success' | 'failure' | 'cancelled' | 'skipped'
 }
 
@@ -51,10 +55,8 @@ const defaultIssueNumber = 1
 
 let inputs = defaultInputs
 let issueNumber = defaultIssueNumber
-// biome-ignore lint/suspicious/noImplicitAnyLet: test fixture
-let getCommitPullsResponse
-// biome-ignore lint/suspicious/noImplicitAnyLet: test fixture
-let getIssueCommentsResponse
+let getCommitPullsResponse: Record<string, unknown>[] | undefined
+let getIssueCommentsResponse: Record<string, unknown>[] | undefined
 let postIssueCommentsResponse = {
   id: 42,
 }
@@ -167,19 +169,19 @@ const getInput = (name: string, options?: core.InputOptions) => {
   return value
 }
 
-function getMultilineInput(name, options) {
+function getMultilineInput(name: string, options?: core.InputOptions) {
   const inputs = getInput(name, options)
     .split('\n')
-    .filter((x) => x !== '')
+    .filter((x: string) => x !== '')
 
   if (options && options.trimWhitespace === false) {
     return inputs
   }
 
-  return inputs.map((input) => input.trim())
+  return inputs.map((input: string) => input.trim())
 }
 
-function getBooleanInput(name, options) {
+function getBooleanInput(name: string, options?: core.InputOptions) {
   const trueValue = ['true', 'True', 'TRUE']
   const falseValue = ['false', 'False', 'FALSE']
   const val = getInput(name, options)
@@ -246,7 +248,7 @@ describe('add-pr-comment action', () => {
 
   it('supports globs in message paths', async () => {
     inputs.message = undefined
-    inputs['message-path'] = `${path.resolve(__dirname, '__fixtures__')}/message-part-*.txt`
+    inputs['message-path'] = `${path.resolve(__dirname)}/__fixtures__/message-part-*.txt`
     inputs['allow-repeats'] = 'true'
 
     await expect(run()).resolves.not.toThrow()
@@ -319,7 +321,7 @@ describe('add-pr-comment action', () => {
   })
 
   it('safely exits when no issue can be found [using GITHUB_TOKEN in env]', async () => {
-    process.env['GITHUB_TOKEN'] = repoToken
+    process.env.GITHUB_TOKEN = repoToken
 
     inputs.message = simpleMessage
     inputs['allow-repeats'] = 'true'
@@ -464,7 +466,7 @@ describe('add-pr-comment action', () => {
 
   it('wraps a message in a codeblock if preformatted is true', async () => {
     inputs.message = undefined
-    inputs['preformatted'] = 'true'
+    inputs.preformatted = 'true'
     inputs['message-path'] = messagePath1Fixture
 
     await expect(run()).resolves.not.toThrow()
@@ -478,8 +480,8 @@ describe('add-pr-comment action', () => {
 
 describe('find and replace', () => {
   it('can find and replace text in an existing comment', async () => {
-    inputs['find'] = 'world'
-    inputs['replace'] = 'mars'
+    inputs.find = 'world'
+    inputs.replace = 'mars'
 
     const commentId = 123
 
@@ -503,8 +505,8 @@ describe('find and replace', () => {
   })
 
   it('can multiple find and replace text in an existing comment', async () => {
-    inputs['find'] = 'hello\nworld'
-    inputs['replace'] = 'goodbye\nmars'
+    inputs.find = 'hello\nworld'
+    inputs.replace = 'goodbye\nmars'
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\nhello\nworld`
 
@@ -530,8 +532,8 @@ describe('find and replace', () => {
   })
 
   it('can multiple find and replace text using a message', async () => {
-    inputs['find'] = 'hello\nworld'
-    inputs['message'] = 'mars'
+    inputs.find = 'hello\nworld'
+    inputs.message = 'mars'
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\nhello\nworld`
 
@@ -557,8 +559,8 @@ describe('find and replace', () => {
   })
 
   it('can multiple find and replace a single pattern with a multiline replacement', async () => {
-    inputs['find'] = 'hello'
-    inputs['message'] = 'h\ne\nl\nl\no'
+    inputs.find = 'hello'
+    inputs.message = 'h\ne\nl\nl\no'
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\nhello\nworld`
 
@@ -586,7 +588,7 @@ describe('find and replace', () => {
   })
 
   it('can multiple find and replace text using a message-path', async () => {
-    inputs['find'] = '<< FILE_CONTENTS >>'
+    inputs.find = '<< FILE_CONTENTS >>'
     inputs['message-path'] = messagePath1Fixture
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\nhello\n<< FILE_CONTENTS >>\nworld`
@@ -615,8 +617,8 @@ describe('find and replace', () => {
   })
 
   it('can find and replace patterns and use alternative modifiers', async () => {
-    inputs['find'] = '(o|l)/g'
-    inputs['replace'] = 'YY'
+    inputs.find = '(o|l)/g'
+    inputs.replace = 'YY'
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\nHELLO\nworld`
 
@@ -642,8 +644,8 @@ describe('find and replace', () => {
   })
 
   it('can check some boxes with find and replace', async () => {
-    inputs['find'] = '\n\\[ \\]'
-    inputs['replace'] = '[X]'
+    inputs.find = '\n\\[ \\]'
+    inputs.replace = '[X]'
 
     const body = `<!-- add-pr-comment:${inputs['message-id']} -->\n\n[ ] Hello\n[ ] World`
 
