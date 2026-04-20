@@ -53876,6 +53876,10 @@ async function deleteCommitComment(octokit, owner, repo, commentId) {
 async function getInputs() {
     const messageIdInput = getInput('message-id', { required: false });
     const messageId = messageIdInput === '' ? 'add-pr-comment' : `add-pr-comment:${messageIdInput}`;
+    const attachPath = getInput('attach-path', { required: false });
+    const attachName = getInput('attach-name', { required: false }) || 'pr-comment-attachments';
+    const attachText = getInput('attach-text', { required: false }) ||
+        '**Attachments:** [%ATTACH_NAME%](%ARTIFACT_URL%)';
     const messageInput = getInput('message', { required: false });
     const messagePath = getInput('message-path', { required: false });
     const messageFind = getMultilineInput('find', { required: false });
@@ -53903,6 +53907,9 @@ async function getInputs() {
     const { payload } = context;
     return {
         allowRepeats,
+        attachName,
+        attachPath,
+        attachText,
         commentTarget: commentTarget,
         commitSha: commitShaInput || context.sha,
         issue: issue ? Number(issue) : payload.issue?.number,
