@@ -84,7 +84,7 @@ async function manageComment(
   if (messageFind?.length && (messageReplace?.length || message) && existingComment?.body) {
     message = findAndReplaceInMessage(
       messageFind,
-      messageReplace?.length ? messageReplace : [message],
+      messageReplace?.length ? messageReplace : [message!],
       removeMessageHeader(existingComment.body),
     )
   }
@@ -301,7 +301,7 @@ export const run = async (): Promise<void> => {
       if (messageFind?.length && (messageReplace?.length || msg) && existingComment?.body) {
         msg = findAndReplaceInMessage(
           messageFind,
-          messageReplace?.length ? messageReplace : [msg],
+          messageReplace?.length ? messageReplace : [msg!],
           removeMessageHeader(existingComment.body),
         )
       }
