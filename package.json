@@ -1,6 +1,6 @@
 {
   "name": "@step-security/add-pr-comment",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "description": "A GitHub Action which adds a comment to a Pull Request Issue.",
   "keywords": [
     "GitHub",
@@ -39,6 +39,7 @@
     "watch": "vitest"
   },
   "dependencies": {
+    "@actions/artifact": "^6.2.1",
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
     "@actions/glob": "^0.6.1",
