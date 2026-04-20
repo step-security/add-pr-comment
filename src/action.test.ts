@@ -99,6 +99,7 @@ vi.mock('@actions/github', async (importOriginal) => {
 
   return {
     ...original,
+    // biome-ignore lint/suspicious/noExplicitAny: matching @actions/github's plugin signature
     getOctokit: (token: string, options?: Record<string, unknown>, ...plugins: any[]) => {
       const GitHubWithPlugins = plugins.length ? TestGitHub.plugin(...plugins) : TestGitHub
       return new GitHubWithPlugins({ auth: `token ${token}`, ...options })
