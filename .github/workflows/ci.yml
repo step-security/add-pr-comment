@@ -43,6 +43,9 @@ jobs:
           npm ci
 
       - name: Check Lint and Formatting
+        run: npm run lint
+
+      - name: Check Types
         run: npm run check
 
       - name: Build Action
