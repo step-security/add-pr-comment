@@ -1,10 +1,9 @@
 {
   "name": "@step-security/add-pr-comment",
-  "version": "3.9.1",
+  "version": "3.10.0",
   "description": "A GitHub Action which adds a comment to a pull request issue or commit.",
   "keywords": [
-    "GitHub",
-    "Actions",
+    "GitHub Actions",
     "javascript",
     "pull request",
     "comments",
@@ -34,15 +33,13 @@
     }
   },
   "scripts": {
-    "build": "npm run package && npm run build:lib",
-    "bundle": "npm run check && npm run package",
+    "build": "npx rimraf ./dist && npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
     "build:lib": "npx rimraf ./lib && tsc --project tsconfig.lib.json",
     "clean": "rm -rf node_modules dist lib coverage package-lock.json",
     "check": "tsc --noEmit",
     "format": "biome check --write .",
     "lint": "biome check .",
-    "package": "npx rimraf ./dist && npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
-    "package:watch": "npm run package -- --watch",
+    "prepack": "npm run build:lib",
     "test": "vitest run --coverage",
     "coverage": "npx make-coverage-badge --output-path ./badges/coverage.svg",
     "watch": "vitest"
@@ -53,6 +50,7 @@
     "@actions/github": "^9.0.0",
     "@actions/glob": "^0.6.1",
     "@actions/http-client": "^4.0.0",
+    "remend": "^1.3.0",
     "axios": "^1.8.4"
   },
   "devDependencies": {

@@ -14,6 +14,8 @@ jobs:
   pr-title:
     name: PR Title
     runs-on: ubuntu-slim
+    permissions:
+      pull-requests: read
     steps:
       - uses: step-security/action-semantic-pull-request@v6
         env:
@@ -36,7 +38,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
         with:
-          node-version-file: '.node-version'
+          node-version-file: "package.json" 
 
       - name: Install Dependencies
         run: |
@@ -74,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
         with:
-          node-version-file: '.node-version'
+          node-version-file: 'package.json'
 
       - name: Install Dependencies
         run: |
