@@ -84,7 +84,8 @@ async function manageComment(
   if (messageFind?.length && (messageReplace?.length || message) && existingComment?.body) {
     message = findAndReplaceInMessage(
       messageFind,
-      messageReplace?.length ? messageReplace : [message],
+      // biome-ignore lint/style/noNonNullAssertion: message is guaranteed to be defined here
+      messageReplace?.length ? messageReplace : [message!],
       removeMessageHeader(existingComment.body),
     )
   }
@@ -301,7 +302,8 @@ export const run = async (): Promise<void> => {
       if (messageFind?.length && (messageReplace?.length || msg) && existingComment?.body) {
         msg = findAndReplaceInMessage(
           messageFind,
-          messageReplace?.length ? messageReplace : [msg],
+          // biome-ignore lint/style/noNonNullAssertion: msg is guaranteed to be defined here
+          messageReplace?.length ? messageReplace : [msg!],
           removeMessageHeader(existingComment.body),
         )
       }
