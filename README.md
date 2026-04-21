@@ -1,9 +1,9 @@
 [![StepSecurity Maintained Action](https://raw.githubusercontent.com/step-security/maintained-actions-assets/main/assets/maintained-action-banner.png)](https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions)
 
 # add-pr-comment
-A GitHub Action which adds a comment to a pull request's issue.
+A GitHub Action which adds a comment to a pull request issue or commit.
 
-This actions also works on [issue](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#issues),
+This action also works on [issue](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#issues),
 [issue_comment](https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#issue_comment),
 [deployment_status](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#deployment_status),
 [push](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#push)
@@ -20,6 +20,7 @@ and any other event where an issue can be found directly on the payload or via a
 - Supports creating a message from a file path.
 - Supports [file attachments](#file-attachments) via GitHub Artifacts.
 - Automatic [message truncation](#message-truncation) for oversized messages (e.g., large Terraform plans).
+- Supports [commit comments](#commit-comments) in addition to PR/issue comments.
 
 ## Usage
 
@@ -92,7 +93,8 @@ jobs:
 | attach-name              | with     | Name for the uploaded artifact.                                                                                                                                             | no       | pr-comment-attachments             |
 | attach-text              | with     | Markdown content for the attachment section. Always separated from the comment by a horizontal rule. Supports `%ARTIFACT_URL%` and `%ATTACH_NAME%` template variables.      | no       | (see [File Attachments](#file-attachments)) |
 | truncate                 | with     | Truncation mode when the message exceeds the safe comment length. See [Message Truncation](#message-truncation).  
-
+| comment-target           | with     | Where to post the comment. Use `pr` for pull request/issue comments or `commit` for commit comments. See [Commit Comments](#commit-comments).                              | no       | pr                                 |
+| commit-sha               | with     | The commit SHA to comment on when `comment-target` is `commit`. Defaults to the current commit.                                                                             | no       | {{ github.sha }}                   |
 ## Outputs
 
 | Output            | Description                                                       |
@@ -455,6 +457,40 @@ The comment will be truncated and end with:
 
 > **Tip:** For very large outputs like Terraform plans, prefer using `message-path` over the `message` input. The `message` input is passed via environment variables, which have OS-level size limits that can cause failures before the action even runs. File-based input via `message-path` avoids this entirely.
 
+### Commit Comments
+
+Instead of posting to a pull request or issue, you can post comments directly on a commit. This is useful for workflows triggered by `push` events or when you want feedback attached to a specific commit rather than a PR conversation.
+
+**Example**
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/add-pr-comment@v3
+        with:
+          comment-target: commit
+          message: |
+            Build succeeded for ${{ github.sha }}
+```
+
+You can also specify a different commit SHA:
+
+```yaml
+- uses: step-security/add-pr-comment@v3
+  with:
+    comment-target: commit
+    commit-sha: ${{ github.event.before }}
+    message: |
+      Comparing changes since this commit.
+```
+
+> **Note:** Commit comments use a different GitHub API than issue/PR comments. Sticky comments (`message-id`), `update-only`, `refresh-message-position`, and `delete-on-status` all work with commit comments. The `proxy-url` option is not supported for commit comments.
 
 > **Important:** The `commit` comment target requires that commit comments are enabled on your repository. GitHub now allows repository admins to [disable comments on individual commits](https://github.blog/changelog/2026-03-25-disable-comments-on-individual-commits/). If commit comments are disabled, this action will fail when using `comment-target: commit`.
 
