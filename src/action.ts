@@ -194,6 +194,7 @@ export const run = async (): Promise<void> => {
       messageFind,
       messageReplace,
       truncate,
+      truncateSeparator,
     } = await getInputs()
 
     const octokit = github.getOctokit(repoToken)
@@ -227,7 +228,13 @@ export const run = async (): Promise<void> => {
     const headerLength = messageId.length + 2 // messageId + '\n\n' from addMessageHeader
 
     if (message) {
-      const truncateResult = await truncateMessage(message, truncate, headerLength, messageId)
+      const truncateResult = await truncateMessage(
+        message,
+        truncate,
+        headerLength,
+        messageId,
+        truncateSeparator,
+      )
       message = truncateResult.message
       core.setOutput('truncated', truncateResult.truncated ? 'true' : 'false')
       if (truncateResult.artifactUrl) {
