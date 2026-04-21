@@ -95,6 +95,7 @@ jobs:
 | truncate                 | with     | Truncation mode when the message exceeds the safe comment length. See [Message Truncation](#message-truncation).  
 | comment-target           | with     | Where to post the comment. Use `pr` for pull request/issue comments or `commit` for commit comments. See [Commit Comments](#commit-comments).                              | no       | pr                                 |
 | commit-sha               | with     | The commit SHA to comment on when `comment-target` is `commit`. Defaults to the current commit.                                                                             | no       | {{ github.sha }}                   |
+
 ## Outputs
 
 | Output            | Description                                                       |
