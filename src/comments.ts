@@ -1,9 +1,10 @@
-import { GitHub } from '@actions/github/lib/utils'
-import {
+import type { GitHub } from '@actions/github/lib/utils'
+import { withRetry } from './retry.js'
+import type {
   CreateIssueCommentResponseData,
   ExistingIssueComment,
   ExistingIssueCommentResponseData,
-} from './types'
+} from './types.js'
 
 export async function getExistingComment(
   octokit: InstanceType<typeof GitHub>,
@@ -49,12 +50,14 @@ export async function updateComment(
   existingCommentId: number,
   body: string,
 ): Promise<CreateIssueCommentResponseData> {
-  const updatedComment = await octokit.rest.issues.updateComment({
-    comment_id: existingCommentId,
-    owner,
-    repo,
-    body,
-  })
+  const updatedComment = await withRetry(() =>
+    octokit.rest.issues.updateComment({
+      comment_id: existingCommentId,
+      owner,
+      repo,
+      body,
+    }),
+  )
 
   return updatedComment.data
 }
@@ -64,14 +67,14 @@ export async function deleteComment(
   owner: string,
   repo: string,
   existingCommentId: number,
-  body: string,
 ): Promise<CreateIssueCommentResponseData> {
-  const deletedComment = await octokit.rest.issues.deleteComment({
-    comment_id: existingCommentId,
-    owner,
-    repo,
-    body,
-  })
+  const deletedComment = await withRetry(() =>
+    octokit.rest.issues.deleteComment({
+      comment_id: existingCommentId,
+      owner,
+      repo,
+    }),
+  )
 
   return deletedComment.data
 }
@@ -83,12 +86,14 @@ export async function createComment(
   issueNumber: number,
   body: string,
 ): Promise<CreateIssueCommentResponseData> {
-  const createdComment = await octokit.rest.issues.createComment({
-    issue_number: issueNumber,
-    owner,
-    repo,
-    body,
-  })
+  const createdComment = await withRetry(() =>
+    octokit.rest.issues.createComment({
+      issue_number: issueNumber,
+      owner,
+      repo,
+      body,
+    }),
+  )
 
   return createdComment.data
 }

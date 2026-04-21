@@ -1,10 +1,15 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { Inputs } from './types'
+import type { Inputs } from './types.js'
 
 export async function getInputs(): Promise<Inputs> {
   const messageIdInput = core.getInput('message-id', { required: false })
   const messageId = messageIdInput === '' ? 'add-pr-comment' : `add-pr-comment:${messageIdInput}`
+  const attachPath = core.getInput('attach-path', { required: false })
+  const attachName = core.getInput('attach-name', { required: false }) || 'pr-comment-attachments'
+  const attachText =
+    core.getInput('attach-text', { required: false }) ||
+    '**Attachments:** [%ATTACH_NAME%](%ARTIFACT_URL%)'
   const messageInput = core.getInput('message', { required: false })
   const messagePath = core.getInput('message-path', { required: false })
   const messageFind = core.getMultilineInput('find', { required: false })
@@ -20,6 +25,19 @@ export async function getInputs(): Promise<Inputs> {
     core.getInput('refresh-message-position', { required: false }) === 'true'
   const updateOnly = core.getInput('update-only', { required: false }) === 'true'
   const preformatted = core.getInput('preformatted', { required: false }) === 'true'
+  const truncateInput = core.getInput('truncate', { required: false }) || 'artifact'
+  if (truncateInput !== 'artifact' && truncateInput !== 'simple') {
+    throw new Error(`Invalid truncate mode: "${truncateInput}". Must be "artifact" or "simple".`)
+  }
+  const truncate = truncateInput as 'artifact' | 'simple'
+  const truncateSeparator = core.getInput('truncate-separator', { required: false })
+  const deleteOnStatus = core.getInput('delete-on-status', { required: false })
+
+  const commentTarget = core.getInput('comment-target', { required: false }) || 'pr'
+  if (commentTarget !== 'pr' && commentTarget !== 'commit') {
+    throw new Error(`Invalid comment-target: "${commentTarget}". Must be "pr" or "commit".`)
+  }
+  const commitShaInput = core.getInput('commit-sha', { required: false })
 
   const messageSuccess = core.getInput(`message-success`)
   const messageFailure = core.getInput(`message-failure`)
@@ -30,7 +48,11 @@ export async function getInputs(): Promise<Inputs> {
 
   return {
     allowRepeats,
-    commitSha: github.context.sha,
+    attachName,
+    attachPath,
+    attachText,
+    commentTarget: commentTarget as 'pr' | 'commit',
+    commitSha: commitShaInput || github.context.sha,
     issue: issue ? Number(issue) : payload.issue?.number,
     messageInput,
     messageId: `<!-- ${messageId} -->`,
@@ -42,6 +64,8 @@ export async function getInputs(): Promise<Inputs> {
     messageFind,
     messageReplace,
     preformatted,
+    truncate,
+    truncateSeparator: truncateSeparator || undefined,
     proxyUrl,
     pullRequestNumber: payload.pull_request?.number,
     refreshMessagePosition,
@@ -50,5 +74,6 @@ export async function getInputs(): Promise<Inputs> {
     owner: repoOwner || payload.repo.owner,
     repo: repoName || payload.repo.repo,
     updateOnly: updateOnly,
+    deleteOnStatus,
   }
 }

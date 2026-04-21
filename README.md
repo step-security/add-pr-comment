@@ -1,9 +1,9 @@
 [![StepSecurity Maintained Action](https://raw.githubusercontent.com/step-security/maintained-actions-assets/main/assets/maintained-action-banner.png)](https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions)
 
 # add-pr-comment
-A GitHub Action which adds a comment to a pull request's issue.
+A GitHub Action which adds a comment to a pull request issue or commit.
 
-This actions also works on [issue](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#issues),
+This action also works on [issue](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#issues),
 [issue_comment](https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#issue_comment),
 [deployment_status](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#deployment_status),
 [push](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#push)
@@ -18,6 +18,9 @@ and any other event where an issue can be found directly on the payload or via a
 - Multiple posts to the same conversation optionally allowable.
 - Supports a proxy for fork-based PRs. [See below](#proxy-for-fork-based-prs).
 - Supports creating a message from a file path.
+- Supports [file attachments](#file-attachments) via GitHub Artifacts.
+- Automatic [message truncation](#message-truncation) for oversized messages (e.g., large Terraform plans).
+- Supports [commit comments](#commit-comments) in addition to PR/issue comments.
 
 ## Usage
 
@@ -76,6 +79,7 @@ jobs:
 | repo-name                | with     | Name of the repo.                                                                                                                                                           | no       | {{ github.event.repository.name }} |
 | repo-token               | with     | Valid GitHub token, either the temporary token GitHub provides or a personal access token.                                                                                  | no       | {{ github.token }}                 |
 | message-id               | with     | Message id to use when searching existing comments. If found, updates the existing (sticky comment).                                                                        | no       |                                    |
+| delete-on-status         | with     | If specified and a comment exists and the status is matching the value of this option, the comment will be deleted                                                          | no       |                                    |
 | refresh-message-position | with     | Should the sticky message be the last one in the PR's feed.                                                                                                                 | no       | false                              |
 | allow-repeats            | with     | Boolean flag to allow identical messages to be posted each time this action is run.                                                                                         | no       | false                              |
 | proxy-url                | with     | String for your proxy service URL if you'd like this to work with fork-based PRs.                                                                                           | no       |                                    |
@@ -85,14 +89,23 @@ jobs:
 | preformatted             | with     | Treat message text as pre-formatted and place it in a codeblock                                                                                                             | no       |                                    |
 | find                     | with     | Patterns to find in an existing message and replace with either `replace` text or a resolved `message`. See [Find-and-Replace](#find-and-replace) for more detail.          | no       |                                    |
 | replace                  | with     | Strings to replace a found pattern with. Each new line is a new replacement, or if you only have one pattern, you can replace with a multiline string.                      | no       |                                    |
+| attach-path              | with     | A file path or glob pattern for files to upload as artifacts and link in the comment. See [File Attachments](#file-attachments).                                            | no       |                                    |
+| attach-name              | with     | Name for the uploaded artifact.                                                                                                                                             | no       | pr-comment-attachments             |
+| attach-text              | with     | Markdown content for the attachment section. Always separated from the comment by a horizontal rule. Supports `%ARTIFACT_URL%` and `%ATTACH_NAME%` template variables.      | no       | (see [File Attachments](#file-attachments)) |
+| truncate                 | with     | Truncation mode when the message exceeds the safe comment length. See [Message Truncation](#message-truncation).  
+| comment-target           | with     | Where to post the comment. Use `pr` for pull request/issue comments or `commit` for commit comments. See [Commit Comments](#commit-comments).                              | no       | pr                                 |
+| commit-sha               | with     | The commit SHA to comment on when `comment-target` is `commit`. Defaults to the current commit.                                                                             | no       | {{ github.sha }}                   |
 
 ## Outputs
 
-| Output | Description |
-| --- | --- |
-| `comment-created` | `"true"` if a new comment was created, `"false"` otherwise. |
+| Output            | Description                                                       |
+| ----------------- | ----------------------------------------------------------------- |
+| `comment-created` | `"true"` if a new comment was created, `"false"` otherwise.       |
 | `comment-updated` | `"true"` if an existing comment was updated, `"false"` otherwise. |
-| `comment-id` | The numeric ID of the created or updated comment. |
+| `comment-id`      | The numeric ID of the created or updated comment.                 |
+| `artifact-url`    | If files were attached, the URL to download the artifact.         |
+| `truncated`       | `"true"` if the message was truncated, `"false"` otherwise.      |
+| `truncated-artifact-url` | If truncated in artifact mode, the URL to download the full message. |
 
 ### Using outputs in subsequent steps
 
@@ -100,7 +113,7 @@ jobs:
 - uses: step-security/add-pr-comment@v3
   id: comment
   with:
-    message: "Hello world"
+    message: 'Hello world'
 
 - name: Check outputs
   run: |
@@ -108,6 +121,7 @@ jobs:
     echo "Comment updated: ${{ steps.comment.outputs.comment-updated }}"
     echo "Comment ID: ${{ steps.comment.outputs.comment-id }}"
 ```
+
 > **Tip:** By default, comments are "upsert" — a comment is created on the first run and updated on subsequent runs when matched by `message-id`. If you want this create-or-update behavior, you do not need to set `update-only`. Setting `update-only: true` skips comment creation entirely and only updates an existing comment. Use it when you specifically want no comment to appear unless one was already posted by a previous step or run.
 
 ## Advanced Uses
@@ -321,6 +335,166 @@ secret message from message.txt
 world
 ```
 
+### File Attachments
+
+You can attach files to your PR comments by uploading them as GitHub Artifacts and embedding download links in the comment body. Files matching the `attach-path` glob are uploaded as a single artifact, and a markdown section with the download link is appended to your comment, separated by a horizontal rule.
+
+> **Note:** Artifact download URLs require GitHub authentication and expire based on your repository's retention settings (default 90 days). Images will not render inline — they appear as download links. This is a GitHub platform limitation.
+
+**Simple — attach a file with defaults**
+
+```yaml
+on:
+  pull_request:
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - run: echo "Build output here" > report.txt
+      - uses: step-security/add-pr-comment@v3
+        with:
+          message: |
+            Build complete! See attached report.
+          attach-path: report.txt
+```
+
+**Advanced — glob pattern, custom name, and custom text template**
+
+```yaml
+on:
+  pull_request:
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          mkdir -p coverage
+          echo "line coverage: 85%" > coverage/summary.txt
+          echo "<html>...</html>" > coverage/report.html
+      - uses: step-security/add-pr-comment@v3
+        with:
+          message: |
+            ## Coverage Report
+            Tests passed with 85% line coverage.
+          attach-path: coverage/*
+          attach-name: coverage-report
+          attach-text: '📎 [Download %ATTACH_NAME%](%ARTIFACT_URL%)'
+```
+
+The `attach-text` input supports two template variables:
+
+| Variable         | Replaced with                      |
+| ---------------- | ---------------------------------- |
+| `%ARTIFACT_URL%` | The artifact download URL          |
+| `%ATTACH_NAME%`  | The value of the `attach-name` input |
+
+### Message Truncation
+
+GitHub's API limits comment bodies to 65,536 characters. Messages that exceed this limit (common with large Terraform plans, verbose test output, etc.) would previously cause the action to fail with an "Argument list too long" or API error.
+
+This action automatically truncates oversized messages to stay within a safe limit (61,440 characters, which includes a 4,096 character buffer). The `truncate` input controls what happens with the full message:
+
+| Mode | Behavior |
+| ---- | -------- |
+| `artifact` (default) | The full, untruncated message is uploaded as a downloadable GitHub Artifact. The comment is truncated and a download link is appended. |
+| `simple` | The comment is truncated and a notice is appended. No artifact is uploaded. |
+
+If artifact upload fails (e.g., permissions, network issues), the action automatically falls back to simple truncation.
+
+**Example — default artifact mode**
+
+```yaml
+on:
+  pull_request:
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - run: terraform plan -no-color > plan.txt
+      - uses: step-security/add-pr-comment@v3
+        with:
+          message-path: plan.txt
+```
+
+If the plan output exceeds the safe limit, the comment will be truncated and end with:
+
+> **This message was truncated.** [Download full message](https://github.com/...)
+
+**Example — simple mode (no artifact)**
+
+```yaml
+- uses: step-security/add-pr-comment@v3
+  with:
+    message-path: plan.txt
+    truncate: simple
+```
+
+The comment will be truncated and end with:
+
+> **This message was truncated.**
+
+**Using the truncation outputs**
+
+```yaml
+- uses: step-security/add-pr-comment@v3
+  id: comment
+  with:
+    message-path: plan.txt
+- name: Check if truncated
+  if: steps.comment.outputs.truncated == 'true'
+  run: |
+    echo "Message was truncated"
+    echo "Full message: ${{ steps.comment.outputs.truncated-artifact-url }}"
+```
+
+> **Tip:** For very large outputs like Terraform plans, prefer using `message-path` over the `message` input. The `message` input is passed via environment variables, which have OS-level size limits that can cause failures before the action even runs. File-based input via `message-path` avoids this entirely.
+
+### Commit Comments
+
+Instead of posting to a pull request or issue, you can post comments directly on a commit. This is useful for workflows triggered by `push` events or when you want feedback attached to a specific commit rather than a PR conversation.
+
+**Example**
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/add-pr-comment@v3
+        with:
+          comment-target: commit
+          message: |
+            Build succeeded for ${{ github.sha }}
+```
+
+You can also specify a different commit SHA:
+
+```yaml
+- uses: step-security/add-pr-comment@v3
+  with:
+    comment-target: commit
+    commit-sha: ${{ github.event.before }}
+    message: |
+      Comparing changes since this commit.
+```
+
+> **Note:** Commit comments use a different GitHub API than issue/PR comments. Sticky comments (`message-id`), `update-only`, `refresh-message-position`, and `delete-on-status` all work with commit comments. The `proxy-url` option is not supported for commit comments.
+
+> **Important:** The `commit` comment target requires that commit comments are enabled on your repository. GitHub now allows repository admins to [disable comments on individual commits](https://github.blog/changelog/2026-03-25-disable-comments-on-individual-commits/). If commit comments are disabled, this action will fail when using `comment-target: commit`.
+
 ### Bring your own issues
 
 You can set an issue id explicitly. Helpful for cases where you want to post
@@ -353,4 +527,29 @@ jobs:
           issue: ${{ steps.pr.outputs.issue }}
           message: |
             **Howdie!**
+```
+
+### Delete on status
+
+This option can be used if comment needs to be removed if a status is reached.
+
+**Example**
+
+> Here, a comment will be added on failure, but on a subsequent run,
+> if the job reaches success status, the comment will be deleted.
+
+```yaml
+on:
+  pull_request:
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: step-security/add-pr-comment@v3
+        if: always()
+        with:
+          message-failure: There was a failure
+          delete-on-status: success
 ```

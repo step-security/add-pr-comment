@@ -1,11 +1,21 @@
 name: "Add PR Comment"
-description: "Add a comment to a pull request"
+description: "Add a comment to a pull request or commit"
 inputs:
   message:
     description: "The message to print."
     required: false
   message-path:
     description: "A path or list of paths to a file to print as a message instead of a string."
+    required: false
+  attach-path:
+    description: "A file path or glob pattern for files to upload as artifacts and link in the comment."
+    required: false
+  attach-name:
+    description: "Name for the uploaded artifact. Defaults to pr-comment-attachments."
+    default: "pr-comment-attachments"
+    required: false
+  attach-text:
+    description: "Markdown text appended for attachments. Use %ARTIFACT_URL% as a placeholder for the download link."
     required: false
   message-id:
     description: "An optional id to use for this message."
@@ -59,10 +69,26 @@ inputs:
   preformatted:
     description: "Treat message text (from a file or input) as pre-formatted and place it in a codeblock."
     required: false
+  truncate:
+    description: 'Truncation mode when the message exceeds the safe comment length. "artifact" (default) uploads the full message as a downloadable artifact and links it. "simple" truncates with a notice.'
+    default: "artifact"
+    required: false
+  truncate-separator:
+    description: 'Custom separator inserted before the truncation notice. Defaults to "---".'
+    required: false
+  comment-target:
+    description: 'Where to post the comment. Use "pr" for pull request/issue comments (default) or "commit" for commit comments.'
+    default: "pr"
+    required: false
+  commit-sha:
+    description: 'The commit SHA to comment on when comment-target is "commit". Defaults to the current commit.'
+    required: false
   find:
     description: "A regular expression to find for replacement. Multiple lines become individual regular expressions."
   replace:
     description: "A replacement to use, overrides the message. Multple lines can replace same-indexed find patterns."
+  delete-on-status:
+    description: "Delete comment on specified status."
 outputs:
   comment-created:
     description: "Whether a comment was created."
@@ -70,6 +96,12 @@ outputs:
     description: "Whether a comment was updated."
   comment-id:
     description: "If a comment was created or updated, the comment id."
+  artifact-url:
+    description: "If files were attached, the URL to download the artifact."
+  truncated:
+    description: "Whether the message was truncated."
+  truncated-artifact-url:
+    description: "If the message was truncated in artifact mode, the URL to download the full message."
 branding:
   icon: message-circle
   color: purple

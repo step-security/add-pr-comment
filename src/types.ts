@@ -1,8 +1,11 @@
-import { Endpoints } from '@octokit/types'
+import type { Endpoints } from '@octokit/types'
 
 export interface Inputs {
   allowRepeats: boolean
-  attachPath?: string[]
+  attachName: string
+  attachPath?: string
+  attachText: string
+  commentTarget: 'pr' | 'commit'
   commitSha: string
   issue?: number
   messageInput?: string
@@ -15,6 +18,8 @@ export interface Inputs {
   messageCancelled?: string
   messageSkipped?: string
   preformatted: boolean
+  truncate: 'artifact' | 'simple'
+  truncateSeparator?: string
   proxyUrl?: string
   pullRequestNumber?: number
   refreshMessagePosition: boolean
@@ -23,6 +28,7 @@ export interface Inputs {
   status: string
   owner: string
   updateOnly: boolean
+  deleteOnStatus?: string
 }
 
 export type CreateIssueCommentResponseData =
@@ -32,3 +38,11 @@ export type ExistingIssueCommentResponseData =
   Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/comments']['response']['data'][0]
 
 export type ExistingIssueComment = Pick<ExistingIssueCommentResponseData, 'id' | 'body'>
+
+export type CreateCommitCommentResponseData =
+  Endpoints['POST /repos/{owner}/{repo}/commits/{commit_sha}/comments']['response']['data']
+
+export type ExistingCommitCommentResponseData =
+  Endpoints['GET /repos/{owner}/{repo}/commits/{commit_sha}/comments']['response']['data'][0]
+
+export type ExistingCommitComment = Pick<ExistingCommitCommentResponseData, 'id' | 'body'>
