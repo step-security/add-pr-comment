@@ -456,6 +456,8 @@ The comment will be truncated and end with:
 > **Tip:** For very large outputs like Terraform plans, prefer using `message-path` over the `message` input. The `message` input is passed via environment variables, which have OS-level size limits that can cause failures before the action even runs. File-based input via `message-path` avoids this entirely.
 
 
+> **Important:** The `commit` comment target requires that commit comments are enabled on your repository. GitHub now allows repository admins to [disable comments on individual commits](https://github.blog/changelog/2026-03-25-disable-comments-on-individual-commits/). If commit comments are disabled, this action will fail when using `comment-target: commit`.
+
 ### Bring your own issues
 
 You can set an issue id explicitly. Helpful for cases where you want to post
