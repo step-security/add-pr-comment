@@ -1,6 +1,6 @@
 {
   "name": "@step-security/add-pr-comment",
-  "version": "3.10.0",
+  "version": "3.11.0",
   "description": "A GitHub Action which adds a comment to a pull request issue or commit.",
   "keywords": [
     "GitHub Actions",
@@ -50,6 +50,7 @@
     "@actions/github": "^9.0.0",
     "@actions/glob": "^0.6.1",
     "@actions/http-client": "^4.0.0",
+    "date-fns": "^4.1.0",
     "remend": "^1.3.0",
     "axios": "^1.8.4"
   },

@@ -21,6 +21,7 @@ import {
   truncateMessage,
 } from './message.js'
 import { createCommentProxy } from './proxy.js'
+import { replaceTemplateVariables } from './templates.js'
 
 interface CommentAdapter {
   getExisting(): Promise<{ id: number; body?: string } | undefined>
@@ -39,6 +40,7 @@ interface ManageCommentOptions {
   messageFind?: string[]
   messageReplace?: string[]
   message: string | undefined
+  templateVariables: boolean
 }
 
 async function manageComment(
@@ -55,6 +57,7 @@ async function manageComment(
     messageId,
     messageFind,
     messageReplace,
+    templateVariables,
   } = options
 
   let existingComment: { id: number; body?: string } | undefined
@@ -97,6 +100,10 @@ async function manageComment(
 
   if (!message) {
     throw new Error('no message, check your message inputs')
+  }
+
+  if (templateVariables) {
+    message = replaceTemplateVariables(message)
   }
 
   const body = addMessageHeader(messageId, message)
@@ -195,6 +202,7 @@ export const run = async (): Promise<void> => {
       messageSuccess,
       messageSkipped,
       preformatted,
+      templateVariables,
       status,
       messageFind,
       messageReplace,
@@ -259,6 +267,7 @@ export const run = async (): Promise<void> => {
       messageFind,
       messageReplace,
       message,
+      templateVariables,
     }
 
     if (commentTarget === 'commit') {
@@ -322,6 +331,10 @@ export const run = async (): Promise<void> => {
 
       if (!msg) {
         throw new Error('no message, check your message inputs')
+      }
+
+      if (templateVariables) {
+        msg = replaceTemplateVariables(msg)
       }
 
       const body = addMessageHeader(messageId, msg)
