@@ -79,11 +79,11 @@ async function manageComment(
 
   if (deleteOnStatus && deleteOnStatus === status) {
     if (existingComment) {
-      core.info('deleting existing comment because delete-comment-on-status matched')
+      core.info('deleting existing comment because delete-on-status matched')
       await adapter.delete(existingComment.id)
       core.setOutput('comment-deleted', 'true')
     } else {
-      core.info('skipping creating comment because delete-comment-on-status matched')
+      core.info('skipping creating comment because delete-on-status matched')
       core.setOutput('comment-created', 'false')
     }
     return
@@ -315,6 +315,20 @@ export const run = async (): Promise<void> => {
       if (!existingComment && updateOnly) {
         core.info('no existing comment found and update-only is true, exiting')
         core.setOutput('comment-created', 'false')
+        return
+      }
+
+      if (deleteOnStatus && deleteOnStatus === status) {
+        if (existingComment) {
+          core.warning(
+            'delete-on-status matched but deleting comments is not supported when using a proxy; leaving the existing comment in place',
+          )
+          core.setOutput('comment-created', 'false')
+          core.setOutput('comment-updated', 'false')
+        } else {
+          core.info('skipping creating comment because delete-on-status matched')
+          core.setOutput('comment-created', 'false')
+        }
         return
       }
 
